@@ -6,10 +6,38 @@
     <title>Signup</title>
 </head>
 <body>
-    <form >
+    <form id="register-form">
         <input type="text" placeholder="username" id="username">
-        <input type="password" name="password" id="password">
+        <input type="password" placeholder="password" id="password">
         <button type="submit">Submit</button>
     </form>
+
+    <script>
+        const form = document.getElementById('register-form');
+
+        const usernameField = document.getElementById('username');
+        const passwordField = document.getElementById('password');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const response = await fetch("/register",{
+                method:"POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    username: usernameField.value,
+                    password: passwordField.value
+                })
+            });
+        const result = await response.json();
+
+        const {id} = result
+
+        window.location.replace(`http://localhost:3000/profile.html?userId =${id}`);
+
+        });
+    </script>
 </body>
 </html>

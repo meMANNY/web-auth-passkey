@@ -11,7 +11,7 @@ const userStore = {};
 app.post('/register',(req,res)=>{
     const {username,password} = req.body; // destructuring  
 
-    const id = `${Date.now()}`;
+    const id = `user_${Date.now()}`;
 
     const user = {
         id,
