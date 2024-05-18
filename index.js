@@ -1,11 +1,11 @@
 const express = require('express');
-
+const {generateRegistrationOptions}= require("@simplewebauthn/server");
 const port = 3000;
 
 const app = express();
 
 app.use(express.json());    // to support JSON-encoded bodies
-
+app.use(express.static('./public'));
 const userStore = {};
 
 app.post('/register',(req,res)=>{
@@ -27,7 +27,22 @@ app.post('/register',(req,res)=>{
     return res.json({id});
 })
 
-app.use(express.static('./public'));
+app.post("/register-challenge",(req,res)=>{
+
+    const {userId} = req.body;
+
+    if(!userStore[userId]){
+        return res.status(404).json({error:"User not found"});
+    }
+
+    const user = userStore[userId];
+    const challengePayload = generateRegistrationOptions({
+        rpID: 'localhost',
+        rpName: 'My localhost machine',
+        username: user.username,
+    });
+})
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
