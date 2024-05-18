@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());    // to support JSON-encoded bodies
 app.use(express.static('./public'));
 const userStore = {};
-
+const challengeStore = {};
 app.post('/register',(req,res)=>{
     const {username,password} = req.body; // destructuring  
 
@@ -36,11 +36,17 @@ app.post("/register-challenge",(req,res)=>{
     }
 
     const user = userStore[userId];
+
+    //create the challenge
     const challengePayload = generateRegistrationOptions({
         rpID: 'localhost',
         rpName: 'My localhost machine',
         username: user.username,
     });
+    // store the challenge
+    challengeStore[userId] = challengePayload.challenge;
+
+    return res.json( {options: challengePayload});
 })
 
 app.listen(port, () => {
