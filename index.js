@@ -1,20 +1,27 @@
-const express = require('express');
-const crypto = require('node:crypto');
-const {generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions}= require("@simplewebauthn/server");
+const express = require('express')
+const crypto = require("node:crypto");
+const { 
+    generateRegistrationOptions, 
+    verifyRegistrationResponse, 
+    generateAuthenticationOptions, 
+    verifyAuthenticationResponse 
+} = require('@simplewebauthn/server')
 
-    if(!globalThis.crypto){
-        globalThis.crypto = crypto;
-    
-    }
 
-const port = 3000;
+if (!globalThis.crypto) {
+    globalThis.crypto = crypto;
+}
 
+const PORT = 3000
 const app = express();
 
-app.use(express.json());    // to support JSON-encoded bodies
-app.use(express.static('./public'));
-const userStore = {};
-const challengeStore = {};
+app.use(express.static('./public'))
+app.use(express.json())
+
+// States
+const userStore = {}
+const challengeStore = {}
+
 app.post('/register', (req, res) => {
     const { username, password } = req.body
     const id = `user_${Date.now()}`
@@ -43,9 +50,9 @@ app.post('/register-challenge', async (req, res) => {
     const challengePayload = await generateRegistrationOptions({
         rpID: 'localhost',
         rpName: 'My Localhost Machine',
-        
+        attestationType: 'none',
         userName: user.username,
-    
+        timeout: 30_000,
     })
 
     challengeStore[userId] = challengePayload.challenge
@@ -54,15 +61,13 @@ app.post('/register-challenge', async (req, res) => {
 
 })
 
-app.post("/register-verify", async(req,res)=>{
-    const {userId,cred}= req.body;
+app.post('/register-verify', async (req, res) => {
+    const { userId, cred }  = req.body
+    
+    if (!userStore[userId]) return res.status(404).json({ error: 'user not found!' })
 
-    if(!userStore[userId]){
-        return res.status(404).json({error:"User not found"});
-    }
-
-    const user = userStore[userId];
-    const challenge = challengeStore[userId];
+    const user = userStore[userId]
+    const challenge = challengeStore[userId]
 
     const verificationResult = await verifyRegistrationResponse({
         expectedChallenge: challenge,
@@ -71,30 +76,47 @@ app.post("/register-verify", async(req,res)=>{
         response: cred,
     })
 
-    if(!verificationResult.verified){
-        return res.status(401).json({error:"Credential verification failed"});
-    }
+    if (!verificationResult.verified) return res.json({ error: 'could not verify' });
+    userStore[userId].passkey = verificationResult.registrationInfo
 
-    userStore[userId].passkey = verificationResult.registrationInfo;
-
-    return res.json({verified:true});
+    return res.json({ verified: true })
 
 })
 
-
-app.post('/login-challenge',async(req,res)=>{
-    const {userId}  = req.body;
-    if(!userStore[userId]){
-        return res.status(400).json({error:"User not found"});
-    }
-
+app.post('/login-challenge', async (req, res) => {
+    const { userId } = req.body
+    if (!userStore[userId]) return res.status(404).json({ error: 'user not found!' })
+    
     const opts = await generateAuthenticationOptions({
         rpID: 'localhost',
     })
 
-    challengeStore[userId] = opts.challenge;
-    return res.json({options: opts});
+    challengeStore[userId] = opts.challenge
+
+    return res.json({ options: opts })
 })
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
+
+
+app.post('/login-verify', async (req, res) => {
+    const { userId, cred }  = req.body
+
+    if (!userStore[userId]) return res.status(404).json({ error: 'user not found!' })
+    const user = userStore[userId]
+    const challenge = challengeStore[userId]
+
+    const result = await verifyAuthenticationResponse({
+        expectedChallenge: challenge,
+        expectedOrigin: 'http://localhost:3000',
+        expectedRPID: 'localhost',
+        response: cred,
+        authenticator: user.passkey
+    })
+
+    if (!result.verified) return res.json({ error: 'something went wrong' })
+    
+    // Login the user: Session, Cookies, JWT
+    return res.json({ success: true, userId })
+})
+
+
+app.listen(PORT, () => console.log(`Server started on PORT:${PORT}`))
