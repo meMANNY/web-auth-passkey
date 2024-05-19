@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('node:crypto');
-const {generateRegistrationOptions, verifyRegistrationResponse}= require("@simplewebauthn/server");
+const {generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions}= require("@simplewebauthn/server");
 
     if(!globalThis.crypto){
         globalThis.crypto = crypto;
@@ -81,6 +81,20 @@ app.post("/register-verify", async(req,res)=>{
 
 })
 
+
+app.post('/login-challenge',async(req,res)=>{
+    const {userId}  = req.body;
+    if(!userStore[userId]){
+        return res.status(400).json({error:"User not found"});
+    }
+
+    const opts = await generateAuthenticationOptions({
+        rpID: 'localhost',
+    })
+
+    challengeStore[userId] = opts.challenge;
+    return res.json({opts});
+})
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
