@@ -30,7 +30,7 @@
 
                 const challengeResult = await response.json();
                 const {options} = challengeResult; //server side challenge;
-                const webauthn = await SimpleWebAuthnBrowser.startRegistration(options);
+                const webauthn = await SimpleWebAuthnBrowser.startRegistration({...options});
 
                 console.log(webauthn);
             })

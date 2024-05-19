@@ -1,5 +1,12 @@
 const express = require('express');
-const {generateRegistrationOptions}= require("@simplewebauthn/server");
+const crypto = require('node:crypto');
+const {generateRegistrationOptions, verifyRegistrationResponse}= require("@simplewebauthn/server");
+
+    if(!globalThis.crypto){
+        globalThis.crypto = crypto;
+    
+    }
+
 const port = 3000;
 
 const app = express();
@@ -27,7 +34,7 @@ app.post('/register',(req,res)=>{
     return res.json({id});
 })
 
-app.post("/register-challenge",(req,res)=>{
+app.post("/register-challenge",async (req,res)=>{
 
     const {userId} = req.body;
 
@@ -38,15 +45,42 @@ app.post("/register-challenge",(req,res)=>{
     const user = userStore[userId];
 
     //create the challenge
-    const challengePayload = generateRegistrationOptions({
+    const challengePayload =  await generateRegistrationOptions({
         rpID: 'localhost',
         rpName: 'My localhost machine',
         username: user.username,
     });
     // store the challenge
-    challengeStore[userId] = challengePayload.challenge;
+    challengeStore[userId] = challengePayload.challenge
 
-    return res.json( {options: challengePayload});
+    return res.json({options: challengePayload});
+})
+
+app.post("/register-verify", async(req,res)=>{
+    const {userId,cred}= req.body;
+
+    if(!userStore[userId]){
+        return res.status(404).json({error:"User not found"});
+    }
+
+    const user = userStore[userId];
+    const challenge = challengeStore[userId];
+
+    const verificationResult = await verifyRegistrationResponse({
+        expectedChallenge: challenge,
+        expectedOrigin: 'http://localhost:3000',
+        expectedRPID: 'localhost',
+        response: cred,
+    })
+
+    if(!verificationResult.verified){
+        return res.status(401).json({error:"Credential verification failed"});
+    }
+
+    userStore[userId].passkey = verificationResult.registrationInfo;
+
+    return res.json({verified:true});
+
 })
 
 app.listen(port, () => {
