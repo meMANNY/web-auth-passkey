@@ -93,7 +93,7 @@ app.post('/login-challenge',async(req,res)=>{
     })
 
     challengeStore[userId] = opts.challenge;
-    return res.json({opts});
+    return res.json({options: opts});
 })
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
